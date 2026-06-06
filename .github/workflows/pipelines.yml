@@ -1,0 +1,121 @@
+name: Multi-stage build, test and deploy different environments to Azure Web App - sonic-user-service
+
+on:
+    push:
+        branches:
+            - main
+            - develop
+    pull_request:
+        branches:
+            - main
+            - develop 
+        types: [opened, synchronize, reopened]
+    workflow_dispatch:
+
+jobs:
+
+    quality:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+              with:
+                persist-credentials: false
+            - name: Setup Biome
+              uses: biomejs/setup-biome@v2
+              with:
+                version: latest
+            - name: Run Biome
+              run: biome ci .
+
+    build:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+        permissions:
+            contents: read
+        
+        steps:
+            - uses: actions/checkout@v4
+            
+            - name: Set up Node.js version
+              uses: actions/setup-node@v3
+              with:
+                node-version: '24.x'
+                cache: 'pnpm'
+            
+            - name: Enable pnpm (corepack)
+              run: corepack enable
+            
+            - name: install and build
+              run: |
+                pnpm install --frozen-lockfile
+                pnpm run build --if-present
+
+            - name: Prepare deploy package (zip)
+              run: |
+                pnpm prune --prod
+                zip -r app.zip dist package.json pnpm-lock.yaml node_modules
+            
+            - uses: actions/upload-artifact@v4
+              with:
+                name: webapp
+                path: app.zip
+    
+    test:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+        permissions:
+            contents: read
+        
+        steps:
+          - uses: actions/checkout@v4
+
+          - name: Set up Node.js version
+            uses: actions/setup-node@v3
+            with:
+                node-version: '24.x'
+                cache: 'pnpm'
+
+          - name: Enable pnpm (corepack)
+            run: corepack enable
+        
+          - name: Install and test
+            run:  |
+                pnpm install --frozen-lockfile
+                pnpm run test:cov -- --passWithNoTests
+       
+    deploy_dev:
+        runs-on: ubuntu-latest
+        environment: dev
+        needs: [build, test, quality]
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: webapp
+
+            - uses: azure/webapps-deploy@v3
+              with:
+                app-name: ${{ secrets.AZURE_WEBAPP_NAME_DEV }}
+                publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_DEV }}
+                package: app.zip
+
+    deploy_prod:
+        runs-on: ubuntu-latest
+        environment: prod
+        needs: [build, test, quality]
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: webapp
+            - uses: azure/webapps-deploy@v3
+              with:
+                app-name: ${{ secrets.AZURE_WEBAPP_NAME_PROD }}
+                publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_PROD }}
+                package: app.zip
