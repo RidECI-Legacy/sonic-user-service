@@ -11,3 +11,57 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum UserType {
+  STUDENT
+  ADMIN
+  TEACHER_ADMINISTRATIVE
+}
+
+enum VehicleType {
+  CAR
+  MOTORCYCLE
+}
+
+enum DocumentType {
+  CC
+  TI
+  CE
+}
+
+enum ProfileRole {
+  DRIVER
+  PASSENGER
+  COMPANION
+}
+
+model Users {
+  id        String  @id @default(uuid())
+  name      String
+  email     String  @unique
+  role      UserType
+  profile   Profiles?
+  vehicles  Vehicles[]
+}
+
+model Vehicles {
+  id        String  @id @default(uuid())
+  brand     String
+  model     String
+  plate     String  @unique
+  type      VehicleType
+  userId    String
+  user      Users  @relation(fields: [userId], references: [id])
+}
+
+model Profiles {
+  id        String  @id @default(uuid())
+  documentType  DocumentType
+  documentNumber String   @unique
+  phone      String   @unique
+  role      ProfileRole
+  rate      Float
+  lastSession  DateTime @default(now())
+  userId    String  @unique
+  user      Users  @relation(fields: [userId], references: [id])
+}
