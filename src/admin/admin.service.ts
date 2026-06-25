@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
-import { VerifyDecisionDto } from './dto/verify-decision.dto';
+import type { PrismaService } from '../prisma/prisma.service';
+import type { RabbitmqService } from '../rabbitmq/rabbitmq.service';
+import type { CreateAdminDto } from './dto/create-admin.dto';
+import type { UpdateAdminDto } from './dto/update-admin.dto';
+import type { VerifyDecisionDto } from './dto/verify-decision.dto';
+
 
 @Injectable()
 export class AdminService {
@@ -9,6 +12,26 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly rabbitmq: RabbitmqService,
   ) {}
+
+	create(createAdminDto: CreateAdminDto) {
+		return 'This action adds a new admin';
+	}
+
+	findAll() {
+		return `This action returns all admin`;
+	}
+
+	findOne(id: number) {
+		return `This action returns a #${id} admin`;
+	}
+
+	update(id: number, updateAdminDto: UpdateAdminDto) {
+		return `This action updates a #${id} admin`;
+	}
+
+	remove(id: number) {
+		return `This action removes a #${id} admin`;
+	}
 
   async findPendingVerifications() {
     return this.prisma.profiles.findMany({

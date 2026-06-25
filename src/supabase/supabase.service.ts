@@ -1,14 +1,13 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Injectable } from '@nestjs/common';
+import { createClient } from '@supabase/supabase-js';
+import type { CreateSupabaseDto } from './dto/create-supabase.dto';
 
 @Injectable()
-export class SupabaseService implements OnModuleInit {
-  private supabase!: SupabaseClient;
-
-  onModuleInit() {
-    this.supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SECRET_KEY!,
+export class SupabaseService {
+  create(createSupabaseDto: CreateSupabaseDto) {
+    const supabase = createClient(
+      createSupabaseDto.supabase_url,
+      createSupabaseDto.secret_key,
       {
         auth: {
           autoRefreshToken: false,
@@ -16,10 +15,10 @@ export class SupabaseService implements OnModuleInit {
         },
       },
     );
-  }
 
-  getAuthAdmin() {
-    return this.supabase.auth.admin;
+    const adminAuthClient = supabase.auth.admin;
+
+    return adminAuthClient;
   }
 
   async uploadFile(
