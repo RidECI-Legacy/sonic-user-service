@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/commo
 import type { AdminService } from './admin.service';
 import type { CreateAdminDto } from './dto/create-admin.dto';
 import type { UpdateAdminDto } from './dto/update-admin.dto';
+import type { VerifyDecisionDto } from './dto/verify-decision.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -21,6 +22,10 @@ export class AdminController {
 	findOne(@Param('id') id: string) {
 		return this.adminService.findOne(+id);
 	}
+  @Get('verifications/pending')
+  findPendingVerifications() {
+    return this.adminService.findPendingVerifications();
+  }
 
 	@Patch(':id')
 	update(@Param('id') id: string, @Body() updateAdminDto: UpdateAdminDto) {
@@ -31,4 +36,11 @@ export class AdminController {
 	remove(@Param('id') id: string) {
 		return this.adminService.remove(+id);
 	}
+  @Patch('verifications/:profileId')
+  verifyDriver(
+    @Param('profileId') profileId: string,
+    @Body() dto: VerifyDecisionDto,
+  ) {
+    return this.adminService.verifyDriver(profileId, dto);
+  }
 }

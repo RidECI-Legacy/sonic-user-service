@@ -6,6 +6,7 @@ import { ProfileModule } from './profile/profile.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { UsersModule } from './users/users.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
+import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 
 @Module({
 	imports: [
@@ -16,6 +17,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
 		SupabaseModule,
 		VehiclesModule,
 		PrismaModule,
+		RabbitmqModule,
 	],
 	controllers: [AppController],
 	providers: [AppService],
