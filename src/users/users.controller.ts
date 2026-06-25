@@ -2,13 +2,8 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Request, UploadedFil
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { FileFieldsInterceptor } from '@nestjs/platform-express';
 import type { UpdateUserDto } from './dto/update-user.dto';
+import type { MulterFile } from './interfaces/multer-file.interface';
 import type { UsersService } from './users.service';
-
-interface MulterFile {
-	buffer: Buffer;
-	originalname: string;
-	mimetype: string;
-}
 
 @Controller('users')
 export class UsersController {

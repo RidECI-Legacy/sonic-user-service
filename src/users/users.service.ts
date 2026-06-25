@@ -4,12 +4,7 @@ import type { PrismaService } from './prisma.service';
 import type { SupabaseService } from '../supabase/supabase.service';
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
-
-interface MulterFile {
-  buffer: Buffer;
-  originalname: string;
-  mimetype: string;
-}
+import type { MulterFile } from './interfaces/multer-file.interface';
 
 @Injectable()
 export class UsersService {
