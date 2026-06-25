@@ -6,10 +6,9 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AdminModule } from './admin/admin.module';
 import { ProfileModule } from './profile/profile.module';
 import { AuthModule } from './auth/auth.module';
+import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 
 @Module({
-  imports: [UsersModule, AuthModule, ProfileModule, AdminModule, SupabaseModule, VehiclesModule, PrismaModule],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [UsersModule, AuthModule, ProfileModule, AdminModule, SupabaseModule, VehiclesModule, PrismaModule, RabbitmqModule],
 })
 export class AppModule {}
