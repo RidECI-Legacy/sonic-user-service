@@ -1,26 +1,26 @@
 import { Injectable } from '@nestjs/common';
-import { CreateVehicleDto } from './dto/create-vehicle.dto';
-import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import type { CreateVehicleDto } from './dto/create-vehicle.dto';
+import type { UpdateVehicleDto } from './dto/update-vehicle.dto';
 
 @Injectable()
 export class VehiclesService {
-  create(createVehicleDto: CreateVehicleDto) {
-    return 'This action adds a new vehicle';
-  }
+	create(createVehicleDto: CreateVehicleDto) {
+		return 'This action adds a new vehicle';
+	}
 
-  findAll() {
-    return `This action returns all vehicles`;
-  }
+	findAll() {
+		return `This action returns all vehicles`;
+	}
 
-  findOne(id: number) {
-    return `This action returns a #${id} vehicle`;
-  }
+	findOne(id: number) {
+		return `This action returns a #${id} vehicle`;
+	}
 
-  update(id: number, updateVehicleDto: UpdateVehicleDto) {
-    return `This action updates a #${id} vehicle`;
-  }
+	update(id: number, updateVehicleDto: UpdateVehicleDto) {
+		return `This action updates a #${id} vehicle`;
+	}
 
-  remove(id: number) {
-    return `This action removes a #${id} vehicle`;
-  }
+	remove(id: number) {
+		return `This action removes a #${id} vehicle`;
+	}
 }
