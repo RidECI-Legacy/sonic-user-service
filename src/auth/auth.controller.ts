@@ -1,13 +1,5 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-} from '@nestjs/common';
-import { AuthService } from './auth.service';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Request } from '@nestjs/common';
+import type { AuthService } from './auth.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { UpdateAuthDto } from './dto/update-auth.dto';
 
@@ -39,4 +31,7 @@ export class AuthController {
   remove(@Param('id') id: string) {
     return this.authService.remove(+id);
   }
+
+  verifyDriver(@Request() req: { user: { id: string } }) {
+    return this.authService.verifyDriver(req.user.id);
 }

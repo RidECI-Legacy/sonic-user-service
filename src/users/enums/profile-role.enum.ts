@@ -1,5 +1,5 @@
 export class ProfileRole {
-    DRIVER = "driver";
-    PASSENGER = "passenger";
-    COMPANION = "companion";
+	DRIVER = 'driver';
+	PASSENGER = 'passenger';
+	COMPANION = 'companion';
 }
