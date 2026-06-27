@@ -273,6 +273,10 @@ pnpm run start:prod
 
 # 📐 Diagramas
 
+## Diagrama de Componentes
+
+![Diagrama de Componentes](docs/uml/DiagramaDeComponentes.png)
+
 ## Diagrama Entidad-Relación
 
 ![Entidad-Relación](docs/uml/EntidadRelacion.png)
@@ -280,6 +284,14 @@ pnpm run start:prod
 ## Diagrama de Clases
 
 ![Diagrama de Clases](docs/uml/DiagramaDeClases.png)
+
+## Diagrama de Despliegue
+
+![Diagrama de Despliegue](docs/uml/DiagramaDeDespliegue.png)
+
+## Diagrama Casos de Uso
+
+![Diagrama de Casos de Uso](docs/uml/DiagramaDeCU.png)
 
 ---
 
