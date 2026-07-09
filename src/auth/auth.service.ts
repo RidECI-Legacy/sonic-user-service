@@ -1,34 +1,76 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
+import { SupabaseService } from '../supabase/supabase.service';
+import { RegisterDto } from './dto/register.dto';
+import { SupabaseWebhookDto } from './dto/supabase-webhook.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly rabbitmq: RabbitmqService,
+    private readonly supabase: SupabaseService,
   ) {}
 
-  create(createAuthDto: CreateAuthDto) {
-    return 'This action adds a new auth';
+  async register(dto: RegisterDto) {
+    const existing = await this.prisma.users.findUnique({
+      where: { email: dto.email },
+    });
+    if (existing) {
+      throw new ConflictException('El email ya está registrado');
+    }
+
+    const supabaseUser = await this.supabase.signUp(dto.email, dto.password, {
+      name: dto.name,
+      role: dto.role,
+      documentType: dto.documentType,
+      documentNumber: dto.documentNumber,
+    });
+
+    const user = await this.prisma.users.create({
+      data: {
+        id: supabaseUser.id,
+        name: dto.name,
+        email: dto.email,
+        role: dto.role,
+        verified: false,
+      },
+    });
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      verified: user.verified,
+    };
   }
 
-  findAll() {
-    return `This action returns all auth`;
+  async handleSupabaseWebhook(body: SupabaseWebhookDto) {
+    if (body.type === 'UPDATE' && body.record?.email_confirmed_at) {
+      await this.markAsVerified(body.record.id);
+    }
+    return { received: true };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
-  }
+  async markAsVerified(userId: string) {
+    const user = await this.prisma.users.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`User not found: ${userId}`);
+    }
 
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
-  }
+    await this.prisma.users.update({
+      where: { id: userId },
+      data: { verified: true },
+    });
 
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
+    return { message: 'User verified successfully' };
   }
 
   async verifyDriver(userId: string) {

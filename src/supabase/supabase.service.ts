@@ -1,9 +1,34 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { createClient } from '@supabase/supabase-js';
+import type { GoTrueClient } from '@supabase/auth-js';
+import type { StorageClient } from '@supabase/storage-js';
 import type { CreateSupabaseDto } from './dto/create-supabase.dto';
 
+type SupabaseAdmin = ReturnType<typeof createClient>;
+
 @Injectable()
-export class SupabaseService {
+export class SupabaseService implements OnModuleInit {
+  private supabaseAdmin!: SupabaseAdmin;
+
+  onModuleInit() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (url && key) {
+      this.supabaseAdmin = createClient(url, key, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+    }
+  }
+
+  get auth(): GoTrueClient {
+    return this.supabaseAdmin.auth as unknown as GoTrueClient;
+  }
+
+  get storage(): StorageClient {
+    return this.supabaseAdmin.storage as unknown as StorageClient;
+  }
+
   create(createSupabaseDto: CreateSupabaseDto) {
     const supabase = createClient(
       createSupabaseDto.supabase_url,
@@ -16,9 +41,22 @@ export class SupabaseService {
       },
     );
 
-    const adminAuthClient = supabase.auth.admin;
+    return supabase.auth.admin;
+  }
 
-    return adminAuthClient;
+  async signUp(
+    email: string,
+    password: string,
+    metadata?: Record<string, unknown>,
+  ) {
+    const { data, error } = await this.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: false,
+      user_metadata: metadata,
+    });
+    if (error) throw error;
+    return data.user;
   }
 
   async uploadFile(
@@ -26,7 +64,7 @@ export class SupabaseService {
     filePath: string,
     file: { buffer: Buffer; originalname: string; mimetype: string },
   ): Promise<string> {
-    const { error } = await this.supabase.storage
+    const { error } = await this.storage
       .from(bucket)
       .upload(filePath, file.buffer, {
         contentType: file.mimetype,
@@ -37,7 +75,7 @@ export class SupabaseService {
   }
 
   getPublicUrl(bucket: string, filePath: string): string {
-    const { data } = this.supabase.storage.from(bucket).getPublicUrl(filePath);
+    const { data } = this.storage.from(bucket).getPublicUrl(filePath);
     return data.publicUrl;
   }
 
@@ -46,7 +84,7 @@ export class SupabaseService {
     filePath: string,
     expiresIn = 3600,
   ): Promise<string> {
-    const { data, error } = await this.supabase.storage
+    const { data, error } = await this.storage
       .from(bucket)
       .createSignedUrl(filePath, expiresIn);
     if (error) throw error;
@@ -54,9 +92,7 @@ export class SupabaseService {
   }
 
   async deleteFile(bucket: string, filePath: string): Promise<void> {
-    const { error } = await this.supabase.storage
-      .from(bucket)
-      .remove([filePath]);
+    const { error } = await this.storage.from(bucket).remove([filePath]);
     if (error) throw error;
   }
 }

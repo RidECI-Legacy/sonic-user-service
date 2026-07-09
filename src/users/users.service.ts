@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, Users } from 'generated/prisma';
-import type { PrismaService } from './prisma.service';
-import type { SupabaseService } from '../supabase/supabase.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
 import type { MulterFile } from './interfaces/multer-file.interface';
@@ -66,7 +65,10 @@ export class UsersService {
       const ext = file.originalname.split('.').pop();
       const path = `${userId}/license.${ext}`;
       await this.supabase.uploadFile('driver-licenses', path, file);
-      publicUrls.driverLicense = this.supabase.getPublicUrl('driver-licenses', path);
+      publicUrls.driverLicense = this.supabase.getPublicUrl(
+        'driver-licenses',
+        path,
+      );
     }
 
     if (files.insurance?.[0]) {
@@ -74,7 +76,10 @@ export class UsersService {
       const ext = file.originalname.split('.').pop();
       const path = `${vehicleId}/insurance.${ext}`;
       await this.supabase.uploadFile('vehicle-insurance', path, file);
-      publicUrls.insurance = this.supabase.getPublicUrl('vehicle-insurance', path);
+      publicUrls.insurance = this.supabase.getPublicUrl(
+        'vehicle-insurance',
+        path,
+      );
     }
 
     await this.prisma.profiles.update({

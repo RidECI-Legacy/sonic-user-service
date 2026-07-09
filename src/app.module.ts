@@ -9,17 +9,15 @@ import { VehiclesModule } from './vehicles/vehicles.module';
 import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 
 @Module({
-	imports: [
-		UsersModule,
-		AuthModule,
-		ProfileModule,
-		AdminModule,
-		SupabaseModule,
-		VehiclesModule,
-		PrismaModule,
-		RabbitmqModule,
-	],
-	controllers: [AppController],
-	providers: [AppService],
+  imports: [
+    UsersModule,
+    AuthModule,
+    ProfileModule,
+    AdminModule,
+    SupabaseModule,
+    VehiclesModule,
+    PrismaModule,
+    RabbitmqModule,
+  ],
 })
 export class AppModule {}
