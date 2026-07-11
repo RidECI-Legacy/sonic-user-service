@@ -9,13 +9,21 @@ type SupabaseAdmin = ReturnType<typeof createClient>;
 @Injectable()
 export class SupabaseService implements OnModuleInit {
   private supabaseAdmin!: SupabaseAdmin;
+  private supabaseAnon!: SupabaseAdmin;
 
   onModuleInit() {
     const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const anonKey = process.env.SECRET_KEY;
 
-    if (url && key) {
-      this.supabaseAdmin = createClient(url, key, {
+    if (url && serviceKey) {
+      this.supabaseAdmin = createClient(url, serviceKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+    }
+
+    if (url && anonKey) {
+      this.supabaseAnon = createClient(url, anonKey, {
         auth: { autoRefreshToken: false, persistSession: false },
       });
     }
@@ -23,6 +31,10 @@ export class SupabaseService implements OnModuleInit {
 
   get auth(): GoTrueClient {
     return this.supabaseAdmin.auth as unknown as GoTrueClient;
+  }
+
+  get anonAuth(): GoTrueClient {
+    return this.supabaseAnon.auth as unknown as GoTrueClient;
   }
 
   get storage(): StorageClient {
@@ -48,14 +60,18 @@ export class SupabaseService implements OnModuleInit {
     email: string,
     password: string,
     metadata?: Record<string, unknown>,
+    redirectTo?: string,
   ) {
-    const { data, error } = await this.auth.admin.createUser({
+    const { data, error } = await this.anonAuth.signUp({
       email,
       password,
-      email_confirm: false,
-      user_metadata: metadata,
+      options: {
+        data: metadata,
+        emailRedirectTo: redirectTo,
+      },
     });
     if (error) throw error;
+    if (!data.user) throw new Error('No user returned from Supabase signUp');
     return data.user;
   }
 

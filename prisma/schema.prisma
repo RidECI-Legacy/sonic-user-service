@@ -41,11 +41,10 @@ enum LicenseValidation {
 }
 
 model Users {
-  id        String   @id @default(uuid())
+  id        String     @id @default(uuid())
   name      String
-  email     String   @unique
-  role      UserType
-  verified  Boolean  @default(false)
+  email     String     @unique
+  role      UserType?
   profile   Profiles?
   vehicles  Vehicles[]
 }
@@ -66,14 +65,15 @@ model Profiles {
   documentType      DocumentType
   documentNumber    String             @unique
   phone             String             @unique
-  role              ProfileRole
-  rate              Float
+  studentId         String?            @unique
+  role              ProfileRole?
+  rate              Float              @default(0)
   lastSession       DateTime           @default(now())
   userId            String             @unique
   user              Users              @relation(fields: [userId], references: [id])
-  photo            String?
-  driverLicense    String?
-  licenseValidation LicenseValidation @default(PENDING)
+  photo             String?
+  driverLicense     String?
+  licenseValidation LicenseValidation  @default(PENDING)
   verifiedAt        DateTime?
   rejectionReason   String?
 }

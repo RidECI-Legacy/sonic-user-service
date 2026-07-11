@@ -8,7 +8,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { RegisterDto } from './dto/register.dto';
-import { SupabaseWebhookDto } from './dto/supabase-webhook.dto';
 
 @Injectable()
 export class AuthService {
@@ -26,20 +25,41 @@ export class AuthService {
       throw new ConflictException('El email ya está registrado');
     }
 
-    const supabaseUser = await this.supabase.signUp(dto.email, dto.password, {
-      name: dto.name,
-      role: dto.role,
-      documentType: dto.documentType,
-      documentNumber: dto.documentNumber,
+    const existingStudentId = await this.prisma.profiles.findUnique({
+      where: { studentId: dto.studentId },
     });
+    if (existingStudentId) {
+      throw new ConflictException('El ID de estudiante ya está registrado');
+    }
+
+    const supabaseUser = await this.supabase.signUp(
+      dto.email,
+      dto.password,
+      {
+        name: dto.name,
+        documentType: dto.documentType,
+        documentNumber: dto.documentNumber,
+        phone: dto.phone,
+        studentId: dto.studentId,
+      },
+      'http://localhost:3000/auth/confirmed',
+    );
 
     const user = await this.prisma.users.create({
       data: {
         id: supabaseUser.id,
         name: dto.name,
         email: dto.email,
-        role: dto.role,
-        verified: false,
+      },
+    });
+
+    await this.prisma.profiles.create({
+      data: {
+        documentType: dto.documentType,
+        documentNumber: dto.documentNumber,
+        phone: dto.phone,
+        studentId: dto.studentId,
+        userId: user.id,
       },
     });
 
@@ -47,30 +67,9 @@ export class AuthService {
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role,
-      verified: user.verified,
+      phone: dto.phone,
+      studentId: dto.studentId,
     };
-  }
-
-  async handleSupabaseWebhook(body: SupabaseWebhookDto) {
-    if (body.type === 'UPDATE' && body.record?.email_confirmed_at) {
-      await this.markAsVerified(body.record.id);
-    }
-    return { received: true };
-  }
-
-  async markAsVerified(userId: string) {
-    const user = await this.prisma.users.findUnique({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException(`User not found: ${userId}`);
-    }
-
-    await this.prisma.users.update({
-      where: { id: userId },
-      data: { verified: true },
-    });
-
-    return { message: 'User verified successfully' };
   }
 
   async verifyDriver(userId: string) {
