@@ -3,11 +3,16 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { RefreshDto } from './dto/refresh.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -98,5 +103,76 @@ export class AuthService {
     });
 
     return { message: 'Verification requested', status: 'PENDING' };
+  }
+
+  async login(dto: LoginDto) {
+    let data;
+    try {
+      data = await this.supabase.signIn(dto.email, dto.password);
+    } catch {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    const user = await this.prisma.users.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (user) {
+      await this.prisma.$executeRaw`
+        UPDATE "Profiles" SET "lastSession" = NOW() WHERE "userId" = ${user.id}
+      `;
+    }
+
+    return {
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      expires_in: data.session.expires_in,
+      token_type: data.session.token_type,
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+      },
+    };
+  }
+
+  async refresh(dto: RefreshDto) {
+    let data;
+    try {
+      data = await this.supabase.refreshSession(dto.refresh_token);
+    } catch {
+      throw new UnauthorizedException('Refresh token inválido o expirado');
+    }
+
+    return {
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      expires_in: data.session.expires_in,
+      token_type: data.session.token_type,
+    };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    try {
+      await this.supabase.resetPasswordForEmail(
+        dto.email,
+        'http://localhost:3000/auth/confirmed',
+      );
+    } catch {
+      throw new BadRequestException('No se pudo enviar el email de recuperación');
+    }
+    return { message: 'Email de recuperación enviado' };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    try {
+      await this.supabase.updateUserPassword(
+        dto.access_token,
+        dto.refresh_token,
+        dto.newPassword,
+      );
+    } catch {
+      throw new UnauthorizedException('Token inválido o expirado');
+    }
+    return { message: 'Contraseña actualizada exitosamente' };
   }
 }

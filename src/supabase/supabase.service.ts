@@ -75,6 +75,50 @@ export class SupabaseService implements OnModuleInit {
     return data.user;
   }
 
+  async signIn(email: string, password: string) {
+    const { data, error } = await this.anonAuth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async refreshSession(refreshToken: string) {
+    const { data, error } = await this.anonAuth.refreshSession({
+      refresh_token: refreshToken,
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async resetPasswordForEmail(email: string, redirectTo?: string) {
+    const { error } = await this.anonAuth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+    if (error) throw error;
+  }
+
+  async updateUserPassword(accessToken: string, refreshToken: string, newPassword: string) {
+    const url = process.env.SUPABASE_URL;
+    const anonKey = process.env.SECRET_KEY;
+
+    const userSupabase = createClient(url!, anonKey!, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { error: sessionError } = await userSupabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (sessionError) throw sessionError;
+
+    const { error } = await userSupabase.auth.updateUser({
+      password: newPassword,
+    });
+    if (error) throw error;
+  }
+
   async uploadFile(
     bucket: string,
     filePath: string,
