@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { LicenseValidation } from '@prisma/client';
+import { LicenseValidation, ProfileRole } from '@prisma/client';
 import type { Profiles } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -115,7 +115,7 @@ export class UsersService {
       documentType: user.profile?.documentType ?? null,
       photo: user.profile?.photo ?? null,
       rate: user.profile?.rate ?? 0,
-      badges: this.computeBadges(user.profile),
+      badges: await this.computeBadges(userId, user.profile),
     };
   }
 
@@ -166,14 +166,34 @@ export class UsersService {
     return this.getProfile(userId);
   }
 
-  private computeBadges(profile: Profiles | null): string[] {
+  private async computeBadges(
+    userId: string,
+    profile: Profiles | null,
+  ): Promise<string[]> {
     if (!profile) return [];
 
     const badges: string[] = [];
-    if (profile.rate >= 4.5) badges.push('Top Rated');
+
     if (profile.licenseValidation === LicenseValidation.VERIFIED) {
       badges.push('Verified Driver');
     }
+
+    const driverTrips = await this.prisma.ratings.groupBy({
+      by: ['tripId'],
+      where: { ratedUserId: userId, role: ProfileRole.DRIVER },
+    });
+    if (profile.rate >= 4.5 && driverTrips.length >= 20) {
+      badges.push('Conductor confiable');
+    }
+
+    const passengerTrips = await this.prisma.ratings.groupBy({
+      by: ['tripId'],
+      where: { ratedUserId: userId, role: ProfileRole.PASSENGER },
+    });
+    if (passengerTrips.length >= 10) {
+      badges.push('Pasajero frecuente');
+    }
+
     return badges;
   }
 }

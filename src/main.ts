@@ -25,6 +25,7 @@ async function bootstrap() {
     .addTag('profile', 'Gestión de perfiles de usuario')
     .addTag('vehicles', 'Gestión de vehículos')
     .addTag('supabase', 'Configuración de Supabase')
+    .addTag('ratings', 'Calificaciones de viajes')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

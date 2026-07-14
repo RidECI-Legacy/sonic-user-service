@@ -7,6 +7,7 @@ import { SupabaseModule } from './supabase/supabase.module';
 import { UsersModule } from './users/users.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
+import { RatingsModule } from './ratings/ratings.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
     VehiclesModule,
     PrismaModule,
     RabbitmqModule,
+    RatingsModule,
   ],
 })
 export class AppModule {}

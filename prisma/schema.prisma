@@ -41,12 +41,14 @@ enum LicenseValidation {
 }
 
 model Users {
-  id        String     @id @default(uuid())
-  name      String
-  email     String     @unique
-  role      UserType?
-  profile   Profiles?
-  vehicles  Vehicles[]
+  id              String     @id @default(uuid())
+  name            String
+  email           String     @unique
+  role            UserType?
+  profile         Profiles?
+  vehicles        Vehicles[]
+  ratingsGiven    Ratings[]  @relation("RatingsGiven")
+  ratingsReceived Ratings[]  @relation("RatingsReceived")
 }
 
 model Vehicles {
@@ -76,4 +78,20 @@ model Profiles {
   licenseValidation LicenseValidation  @default(PENDING)
   verifiedAt        DateTime?
   rejectionReason   String?
+}
+
+model Ratings {
+  id          String      @id @default(uuid())
+  tripId      String
+  raterId     String
+  ratedUserId String
+  role        ProfileRole
+  stars       Int
+  comment     String?
+  createdAt   DateTime    @default(now())
+
+  rater     Users @relation("RatingsGiven", fields: [raterId], references: [id])
+  ratedUser Users @relation("RatingsReceived", fields: [ratedUserId], references: [id])
+
+  @@unique([tripId, raterId])
 }

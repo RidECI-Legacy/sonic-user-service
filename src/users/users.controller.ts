@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Request,
   UploadedFile,
   UploadedFiles,
@@ -25,11 +26,16 @@ import type { MulterFile } from './interfaces/multer-file.interface';
 import { UsersService } from './users.service';
 import { SupabaseAuthGuard } from '../common/guards/supabase-auth.guard';
 import type { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface';
+import { RatingsService } from '../ratings/ratings.service';
+import { TripsHistoryQueryDto } from '../ratings/dto/trips-history-query.dto';
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly ratingsService: RatingsService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Crear usuario', description: 'Crea un nuevo usuario en la base de datos local.' })
@@ -174,5 +180,35 @@ export class UsersController {
       throw new ForbiddenException('You can only edit your own profile');
     }
     return this.usersService.updateProfile(id, dto, photo);
+  }
+
+  @Get(':id/trips-history')
+  @UseGuards(SupabaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Historial de viajes calificados',
+    description:
+      'Lista paginada de viajes pasados con la calificación recibida por el usuario. Solo el dueño puede consultar su propio historial.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'ID del usuario',
+    example: 'uuid-1234-5678',
+  })
+  @ApiResponse({ status: 200, description: 'Historial obtenido exitosamente.' })
+  @ApiResponse({ status: 401, description: 'No autenticado.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Solo puedes ver tu propio historial.',
+  })
+  getTripsHistory(
+    @Param('id') id: string,
+    @Query() query: TripsHistoryQueryDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    if (!req.user || req.user.id !== id) {
+      throw new ForbiddenException('You can only view your own trip history');
+    }
+    return this.ratingsService.getTripsHistory(id, query);
   }
 }
