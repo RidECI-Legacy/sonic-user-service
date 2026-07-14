@@ -6,6 +6,19 @@ import type { CreateSupabaseDto } from './dto/create-supabase.dto';
 
 type SupabaseAdmin = ReturnType<typeof createClient>;
 
+export interface SupabaseSession {
+  session: {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+    token_type: string;
+  };
+  user: {
+    id: string;
+    email?: string;
+  };
+}
+
 @Injectable()
 export class SupabaseService implements OnModuleInit {
   private supabaseAdmin!: SupabaseAdmin;
@@ -75,21 +88,27 @@ export class SupabaseService implements OnModuleInit {
     return data.user;
   }
 
-  async signIn(email: string, password: string) {
+  async signIn(email: string, password: string): Promise<SupabaseSession> {
     const { data, error } = await this.anonAuth.signInWithPassword({
       email,
       password,
     });
     if (error) throw error;
-    return data;
+    if (!data.session || !data.user) {
+      throw new Error('No session returned from Supabase signIn');
+    }
+    return { session: data.session, user: data.user };
   }
 
-  async refreshSession(refreshToken: string) {
+  async refreshSession(refreshToken: string): Promise<SupabaseSession> {
     const { data, error } = await this.anonAuth.refreshSession({
       refresh_token: refreshToken,
     });
     if (error) throw error;
-    return data;
+    if (!data.session || !data.user) {
+      throw new Error('No session returned from Supabase refreshSession');
+    }
+    return { session: data.session, user: data.user };
   }
 
   async resetPasswordForEmail(email: string, redirectTo?: string) {
@@ -99,7 +118,11 @@ export class SupabaseService implements OnModuleInit {
     if (error) throw error;
   }
 
-  async updateUserPassword(accessToken: string, refreshToken: string, newPassword: string) {
+  async updateUserPassword(
+    accessToken: string,
+    refreshToken: string,
+    newPassword: string,
+  ) {
     const url = process.env.SUPABASE_URL;
     const anonKey = process.env.SECRET_KEY;
 
@@ -154,5 +177,22 @@ export class SupabaseService implements OnModuleInit {
   async deleteFile(bucket: string, filePath: string): Promise<void> {
     const { error } = await this.storage.from(bucket).remove([filePath]);
     if (error) throw error;
+  }
+
+  async deleteAuthUser(userId: string): Promise<void> {
+    await this.supabaseAdmin.auth.admin.deleteUser(userId);
+  }
+
+  async getAuthUser(
+    userId: string,
+  ): Promise<{ emailConfirmed: boolean; createdAt: string } | null> {
+    const { data, error } =
+      await this.supabaseAdmin.auth.admin.getUserById(userId);
+    if (error || !data.user) return null;
+
+    return {
+      emailConfirmed: data.user.email_confirmed_at != null,
+      createdAt: data.user.created_at,
+    };
   }
 }

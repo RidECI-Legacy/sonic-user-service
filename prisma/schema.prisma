@@ -40,11 +40,17 @@ enum LicenseValidation {
   REJECTED
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 model Users {
   id              String     @id @default(uuid())
   name            String
   email           String     @unique
   role            UserType?
+  status          UserStatus @default(ACTIVE)
   profile         Profiles?
   vehicles        Vehicles[]
   ratingsGiven    Ratings[]  @relation("RatingsGiven")

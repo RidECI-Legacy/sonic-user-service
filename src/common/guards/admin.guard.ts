@@ -11,11 +11,8 @@ import type { AuthenticatedRequest } from '../interfaces/authenticated-request.i
 
 @Injectable()
 export class AdminGuard extends SupabaseAuthGuard {
-  constructor(
-    supabase: SupabaseService,
-    private readonly prisma: PrismaService,
-  ) {
-    super(supabase);
+  constructor(supabase: SupabaseService, prisma: PrismaService) {
+    super(supabase, prisma);
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
