@@ -1,12 +1,12 @@
+
 import { Module } from '@nestjs/common';
-import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { PrismaModule } from '../prisma/prisma.module';
-import { RabbitmqModule } from '../rabbitmq/rabbitmq.module';
-import { SupabaseModule } from '../supabase/supabase.module';
+import { AuthController } from './auth.controller';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { RabbitmqModule } from 'src/rabbitmq/rabbitmq.module';
 
 @Module({
-  imports: [PrismaModule, RabbitmqModule, SupabaseModule],
+  imports: [PrismaModule, RabbitmqModule],
   controllers: [AuthController],
   providers: [AuthService],
 })

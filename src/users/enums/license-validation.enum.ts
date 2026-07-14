@@ -1,5 +1,5 @@
-export enum LicenseValidation {
-  PENDING = 'PENDING',
-  VERIFIED = 'VERIFIED',
-  REJECTED = 'REJECTED',
+export enum LicenseValidation{
+  VERIFIED = 'Verified',
+  PENDING = 'Pending',
+  REJECTED = 'Rejected',
 }
