@@ -5,8 +5,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { AssignRoleDto } from './dto/assign-role.dto';
-import type { CreateAdminDto } from './dto/create-admin.dto';
-import type { UpdateAdminDto } from './dto/update-admin.dto';
 import type { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import type { VerifyDecisionDto } from './dto/verify-decision.dto';
 
@@ -25,28 +23,8 @@ export class AdminService {
     private readonly supabase: SupabaseService,
   ) {}
 
-  create(createAdminDto: CreateAdminDto) {
-    return 'This action adds a new admin';
-  }
-
-  findAll() {
-    return `This action returns all admin`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} admin`;
-  }
-
-  update(id: number, updateAdminDto: UpdateAdminDto) {
-    return `This action updates a #${id} admin`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} admin`;
-  }
-
   async findPendingVerifications() {
-    return this.prisma.profiles.findMany({
+    const profiles = await this.prisma.profiles.findMany({
       where: {
         role: 'DRIVER',
         licenseValidation: 'PENDING',
@@ -55,12 +33,46 @@ export class AdminService {
         user: {
           include: {
             vehicles: {
-              select: { id: true, brand: true, model: true, plate: true },
+              select: {
+                id: true,
+                brand: true,
+                model: true,
+                plate: true,
+                insurance: true,
+              },
             },
           },
         },
       },
     });
+
+    // Los documentos viven en buckets privados: convertimos los paths guardados
+    // en signed URLs temporales para que el admin pueda revisarlos.
+    return Promise.all(
+      profiles.map(async (profile) => ({
+        ...profile,
+        driverLicense: profile.driverLicense
+          ? await this.supabase.getSignedUrl(
+              'driver-licenses',
+              profile.driverLicense,
+            )
+          : null,
+        user: {
+          ...profile.user,
+          vehicles: await Promise.all(
+            profile.user.vehicles.map(async (vehicle) => ({
+              ...vehicle,
+              insurance: vehicle.insurance
+                ? await this.supabase.getSignedUrl(
+                    'vehicle-insurance',
+                    vehicle.insurance,
+                  )
+                : null,
+            })),
+          ),
+        },
+      })),
+    );
   }
 
   async verifyDriver(profileId: string, dto: VerifyDecisionDto) {

@@ -23,21 +23,52 @@ describe('AdminService', () => {
     );
   });
 
-  describe('stubs', () => {
-    it('create/findAll/findOne/update/remove return placeholder strings', () => {
-      expect(service.create({})).toBe('This action adds a new admin');
-      expect(service.findAll()).toBe('This action returns all admin');
-      expect(service.findOne(1)).toBe('This action returns a #1 admin');
-      expect(service.update(1, {})).toBe('This action updates a #1 admin');
-      expect(service.remove(1)).toBe('This action removes a #1 admin');
-    });
+  it('findPendingVerifications returns pending profiles with signed document urls', async () => {
+    prisma.profiles.findMany.mockResolvedValue([
+      {
+        id: 'p1',
+        driverLicense: 'user-1/license.png',
+        user: {
+          id: 'user-1',
+          vehicles: [{ id: 'v1', insurance: 'v1/insurance.png' }],
+        },
+      },
+    ]);
+    supabase.getSignedUrl
+      .mockResolvedValueOnce('https://example.com/signed-license')
+      .mockResolvedValueOnce('https://example.com/signed-insurance');
+
+    const result = await service.findPendingVerifications();
+
+    expect(prisma.profiles.findMany).toHaveBeenCalled();
+    expect(supabase.getSignedUrl).toHaveBeenCalledWith(
+      'driver-licenses',
+      'user-1/license.png',
+    );
+    expect(supabase.getSignedUrl).toHaveBeenCalledWith(
+      'vehicle-insurance',
+      'v1/insurance.png',
+    );
+    expect(result[0].driverLicense).toBe('https://example.com/signed-license');
+    expect(result[0].user.vehicles[0].insurance).toBe(
+      'https://example.com/signed-insurance',
+    );
   });
 
-  it('findPendingVerifications queries pending driver profiles', async () => {
-    prisma.profiles.findMany.mockResolvedValue([{ id: 'p1' }]);
+  it('findPendingVerifications leaves documents null when there are no paths', async () => {
+    prisma.profiles.findMany.mockResolvedValue([
+      {
+        id: 'p1',
+        driverLicense: null,
+        user: { id: 'user-1', vehicles: [{ id: 'v1', insurance: null }] },
+      },
+    ]);
+
     const result = await service.findPendingVerifications();
-    expect(result).toEqual([{ id: 'p1' }]);
-    expect(prisma.profiles.findMany).toHaveBeenCalled();
+
+    expect(supabase.getSignedUrl).not.toHaveBeenCalled();
+    expect(result[0].driverLicense).toBeNull();
+    expect(result[0].user.vehicles[0].insurance).toBeNull();
   });
 
   describe('verifyDriver', () => {

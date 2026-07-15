@@ -2,7 +2,6 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { createClient } from '@supabase/supabase-js';
 import type { GoTrueClient } from '@supabase/auth-js';
 import type { StorageClient } from '@supabase/storage-js';
-import type { CreateSupabaseDto } from './dto/create-supabase.dto';
 
 type SupabaseAdmin = ReturnType<typeof createClient>;
 
@@ -52,21 +51,6 @@ export class SupabaseService implements OnModuleInit {
 
   get storage(): StorageClient {
     return this.supabaseAdmin.storage as unknown as StorageClient;
-  }
-
-  create(createSupabaseDto: CreateSupabaseDto) {
-    const supabase = createClient(
-      createSupabaseDto.supabase_url,
-      createSupabaseDto.secret_key,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      },
-    );
-
-    return supabase.auth.admin;
   }
 
   async signUp(

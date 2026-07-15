@@ -7,7 +7,7 @@ interface MockPrismaShape {
     'findUnique' | 'create' | 'update' | 'count' | 'findMany',
     jest.Mock
   >;
-  vehicles: Record<'findFirst' | 'update', jest.Mock>;
+  vehicles: Record<'findFirst' | 'findMany' | 'create' | 'update', jest.Mock>;
   ratings: Record<
     'create' | 'aggregate' | 'groupBy' | 'count' | 'findMany',
     jest.Mock
@@ -35,6 +35,8 @@ export function createMockPrisma(): MockPrismaShape {
     },
     vehicles: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
       update: jest.fn(),
     },
     ratings: {

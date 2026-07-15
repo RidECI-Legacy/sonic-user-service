@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   ForbiddenException,
   Get,
   Param,
@@ -14,13 +13,23 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { CreateUserDto } from './dto/create-user.dto';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   FileFieldsInterceptor,
   FileInterceptor,
 } from '@nestjs/platform-express';
-import { UpdateUserDto } from './dto/update-user.dto';
+import {
+  DOCUMENT_UPLOAD_OPTIONS,
+  IMAGE_UPLOAD_OPTIONS,
+} from '../common/upload/file-upload';
 import { UpdateProfileSelfDto } from './dto/update-profile-self.dto';
 import type { MulterFile } from './interfaces/multer-file.interface';
 import { UsersService } from './users.service';
@@ -37,69 +46,46 @@ export class UsersController {
     private readonly ratingsService: RatingsService,
   ) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Crear usuario', description: 'Crea un nuevo usuario en la base de datos local.' })
-  @ApiResponse({ status: 201, description: 'Usuario creado exitosamente.' })
-  @ApiResponse({ status: 400, description: 'Datos inválidos.' })
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
-  }
-
-  @Get()
-  @ApiOperation({ summary: 'Listar usuarios', description: 'Obtiene todos los usuarios registrados.' })
-  @ApiResponse({ status: 200, description: 'Lista de usuarios.' })
-  findAll() {
-    return this.usersService.findAll();
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Obtener usuario por ID', description: 'Obtiene un usuario específico por su ID.' })
-  @ApiParam({ name: 'id', description: 'ID del usuario', example: '1' })
-  @ApiResponse({ status: 200, description: 'Usuario encontrado.' })
-  @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(+id);
-  }
-
-  @Patch(':id')
-  @ApiOperation({ summary: 'Actualizar usuario', description: 'Actualiza parcialmente los datos de un usuario.' })
-  @ApiParam({ name: 'id', description: 'ID del usuario', example: '1' })
-  @ApiResponse({ status: 200, description: 'Usuario actualizado exitosamente.' })
-  @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(+id, updateUserDto);
-  }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Eliminar usuario', description: 'Elimina un usuario de la base de datos.' })
-  @ApiParam({ name: 'id', description: 'ID del usuario', example: '1' })
-  @ApiResponse({ status: 200, description: 'Usuario eliminado exitosamente.' })
-  @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(+id);
-  }
-
   @Post('verify-request')
+  @UseGuards(SupabaseAuthGuard)
   @ApiBearerAuth()
   @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'license', maxCount: 1 },
-      { name: 'insurance', maxCount: 1 },
-    ]),
+    FileFieldsInterceptor(
+      [
+        { name: 'license', maxCount: 1 },
+        { name: 'insurance', maxCount: 1 },
+      ],
+      DOCUMENT_UPLOAD_OPTIONS,
+    ),
   )
-  @ApiOperation({ summary: 'Solicitar verificación de conductor', description: 'Envía documentos (licencia y seguro) para verificación como conductor.' })
+  @ApiOperation({
+    summary: 'Solicitar verificación de conductor',
+    description:
+      'Envía documentos (licencia y seguro) para verificación como conductor.',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        license: { type: 'string', format: 'binary', description: 'Imagen de la licencia de conducir' },
-        insurance: { type: 'string', format: 'binary', description: 'Imagen del seguro del vehículo' },
+        license: {
+          type: 'string',
+          format: 'binary',
+          description: 'Imagen de la licencia de conducir',
+        },
+        insurance: {
+          type: 'string',
+          format: 'binary',
+          description: 'Imagen del seguro del vehículo',
+        },
         vehicleId: { type: 'string', description: 'ID del vehículo asociado' },
       },
     },
   })
-  @ApiResponse({ status: 201, description: 'Solicitud de verificación enviada.' })
+  @ApiResponse({
+    status: 201,
+    description: 'Solicitud de verificación enviada.',
+  })
   @ApiResponse({ status: 401, description: 'No autenticado.' })
   async verifyRequest(
     @UploadedFiles()
@@ -108,16 +94,18 @@ export class UsersController {
       insurance?: MulterFile[];
     },
     @Body('vehicleId') vehicleId: string,
-    @Request() req: { user: { id: string } },
+    @Request() req: AuthenticatedRequest,
   ) {
-    return this.usersService.verifyRequest(req.user.id, vehicleId, files);
+    return this.usersService.verifyRequest(req.user!.id, vehicleId, files);
   }
 
   @Get(':id/profile')
+  @UseGuards(SupabaseAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Obtener perfil',
     description:
-      'Obtiene los datos de perfil, reputación y distintivos de un usuario.',
+      'Obtiene el perfil público (nombre, foto, reputación, distintivos). El email, teléfono y documento solo se devuelven al dueño del perfil.',
   })
   @ApiParam({
     name: 'id',
@@ -125,15 +113,16 @@ export class UsersController {
     example: 'uuid-1234-5678',
   })
   @ApiResponse({ status: 200, description: 'Perfil encontrado.' })
+  @ApiResponse({ status: 401, description: 'No autenticado.' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
-  getProfile(@Param('id') id: string) {
-    return this.usersService.getProfile(id);
+  getProfile(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    return this.usersService.getProfile(id, req.user!.id);
   }
 
   @Patch(':id/profile')
   @UseGuards(SupabaseAuthGuard)
   @ApiBearerAuth()
-  @UseInterceptors(FileInterceptor('photo'))
+  @UseInterceptors(FileInterceptor('photo', IMAGE_UPLOAD_OPTIONS))
   @ApiOperation({
     summary: 'Actualizar perfil propio',
     description:

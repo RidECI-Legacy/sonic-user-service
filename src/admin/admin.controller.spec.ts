@@ -8,12 +8,7 @@ describe('AdminController', () => {
     getPendingRoleUsers: jest.Mock;
     assignUserRole: jest.Mock;
     exportUsersReport: jest.Mock;
-    create: jest.Mock;
-    findAll: jest.Mock;
-    findOne: jest.Mock;
     findPendingVerifications: jest.Mock;
-    update: jest.Mock;
-    remove: jest.Mock;
     verifyDriver: jest.Mock;
   };
 
@@ -24,12 +19,7 @@ describe('AdminController', () => {
       getPendingRoleUsers: jest.fn(),
       assignUserRole: jest.fn(),
       exportUsersReport: jest.fn(),
-      create: jest.fn(),
-      findAll: jest.fn(),
-      findOne: jest.fn(),
       findPendingVerifications: jest.fn(),
-      update: jest.fn(),
-      remove: jest.fn(),
       verifyDriver: jest.fn(),
     };
     controller = new AdminController(adminService as never);
@@ -73,24 +63,9 @@ describe('AdminController', () => {
     expect(res.send).toHaveBeenCalledWith(buffer);
   });
 
-  it('create/findAll/findOne/update/remove/findPendingVerifications delegate to adminService', () => {
-    controller.create({});
-    expect(adminService.create).toHaveBeenCalled();
-
-    controller.findAll();
-    expect(adminService.findAll).toHaveBeenCalled();
-
-    controller.findOne('1');
-    expect(adminService.findOne).toHaveBeenCalledWith(1);
-
+  it('findPendingVerifications delegates to adminService', () => {
     void controller.findPendingVerifications();
     expect(adminService.findPendingVerifications).toHaveBeenCalled();
-
-    controller.update('1', {});
-    expect(adminService.update).toHaveBeenCalledWith(1, {});
-
-    controller.remove('1');
-    expect(adminService.remove).toHaveBeenCalledWith(1);
   });
 
   it('verifyDriver delegates with profileId and dto', () => {

@@ -4,37 +4,28 @@ describe('VehiclesController', () => {
   let controller: VehiclesController;
   let vehiclesService: {
     create: jest.Mock;
-    findAll: jest.Mock;
-    findOne: jest.Mock;
-    update: jest.Mock;
-    remove: jest.Mock;
+    findMyVehicles: jest.Mock;
   };
 
   beforeEach(() => {
     vehiclesService = {
       create: jest.fn(),
-      findAll: jest.fn(),
-      findOne: jest.fn(),
-      update: jest.fn(),
-      remove: jest.fn(),
+      findMyVehicles: jest.fn(),
     };
-    controller = new VehiclesController(vehiclesService);
+    controller = new VehiclesController(vehiclesService as never);
   });
 
-  it('delegates every CRUD method to vehiclesService', () => {
-    controller.create({} as never);
-    expect(vehiclesService.create).toHaveBeenCalled();
+  it('create delegates with the authenticated user id', () => {
+    const dto = { plate: 'ABC-123' } as never;
 
-    controller.findAll();
-    expect(vehiclesService.findAll).toHaveBeenCalled();
+    void controller.create(dto, { user: { id: 'user-1' } } as never);
 
-    controller.findOne('1');
-    expect(vehiclesService.findOne).toHaveBeenCalledWith(1);
+    expect(vehiclesService.create).toHaveBeenCalledWith('user-1', dto);
+  });
 
-    controller.update('1', {});
-    expect(vehiclesService.update).toHaveBeenCalledWith(1, {});
+  it('findMyVehicles delegates with the authenticated user id', () => {
+    void controller.findMyVehicles({ user: { id: 'user-1' } } as never);
 
-    controller.remove('1');
-    expect(vehiclesService.remove).toHaveBeenCalledWith(1);
+    expect(vehiclesService.findMyVehicles).toHaveBeenCalledWith('user-1');
   });
 });

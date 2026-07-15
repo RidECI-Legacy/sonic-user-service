@@ -294,10 +294,4 @@ describe('SupabaseService', () => {
     const result = await service.getAuthUser('user-1');
     expect(result).toBeNull();
   });
-
-  it('create builds a new client scoped to the given dto', () => {
-    const dto = { supabase_url: 'https://x.supabase.co', secret_key: 'key' };
-    const result = service.create(dto);
-    expect(result).toBe(mockAuth.admin);
-  });
 });

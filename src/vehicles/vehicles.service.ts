@@ -1,26 +1,35 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import type { CreateVehicleDto } from './dto/create-vehicle.dto';
-import type { UpdateVehicleDto } from './dto/update-vehicle.dto';
 
 @Injectable()
 export class VehiclesService {
-  create(createVehicleDto: CreateVehicleDto) {
-    return 'This action adds a new vehicle';
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(userId: string, dto: CreateVehicleDto) {
+    try {
+      return await this.prisma.vehicles.create({
+        data: {
+          brand: dto.brand,
+          model: dto.model,
+          plate: dto.plate,
+          type: dto.type,
+          userId,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('La placa ya está registrada');
+      }
+      throw error;
+    }
   }
 
-  findAll() {
-    return `This action returns all vehicles`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} vehicle`;
-  }
-
-  update(id: number, updateVehicleDto: UpdateVehicleDto) {
-    return `This action updates a #${id} vehicle`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} vehicle`;
+  findMyVehicles(userId: string) {
+    return this.prisma.vehicles.findMany({ where: { userId } });
   }
 }

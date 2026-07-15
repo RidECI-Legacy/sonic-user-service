@@ -18,16 +18,6 @@ describe('UsersService', () => {
     service = new UsersService(prisma as never, supabase as never);
   });
 
-  describe('stubs', () => {
-    it('create/findAll/findOne/update/remove return placeholder strings', () => {
-      expect(service.create({} as never)).toBe('This action adds a new user');
-      expect(service.findAll()).toBe('This action returns all users');
-      expect(service.findOne(1)).toBe('This action returns a #1 user');
-      expect(service.update(1, {})).toBe('This action updates a #1 user');
-      expect(service.remove(1)).toBe('This action removes a #1 user');
-    });
-  });
-
   describe('verifyRequest', () => {
     it('throws NotFoundException when profile does not exist', async () => {
       prisma.profiles.findUnique.mockResolvedValue(null);
@@ -47,9 +37,12 @@ describe('UsersService', () => {
     it('uploads license and insurance and updates both records', async () => {
       prisma.profiles.findUnique.mockResolvedValue({ userId: 'user-1' });
       prisma.vehicles.findFirst.mockResolvedValue({ id: 'vehicle-1' });
-      supabase.getPublicUrl
-        .mockReturnValueOnce('https://example.com/license.png')
-        .mockReturnValueOnce('https://example.com/insurance.png');
+      supabase.uploadFile
+        .mockResolvedValueOnce('user-1/license.png')
+        .mockResolvedValueOnce('vehicle-1/insurance.png');
+      supabase.getSignedUrl
+        .mockResolvedValueOnce('https://example.com/signed-license')
+        .mockResolvedValueOnce('https://example.com/signed-insurance');
 
       const files = {
         license: [
@@ -71,8 +64,17 @@ describe('UsersService', () => {
       const result = await service.verifyRequest('user-1', 'vehicle-1', files);
 
       expect(supabase.uploadFile).toHaveBeenCalledTimes(2);
-      expect(result.driverLicense).toBe('https://example.com/license.png');
-      expect(result.insurance).toBe('https://example.com/insurance.png');
+      expect(supabase.getPublicUrl).not.toHaveBeenCalled();
+      expect(prisma.profiles.update).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        data: { driverLicense: 'user-1/license.png' },
+      });
+      expect(prisma.vehicles.update).toHaveBeenCalledWith({
+        where: { id: 'vehicle-1' },
+        data: { insurance: 'vehicle-1/insurance.png' },
+      });
+      expect(result.driverLicense).toBe('https://example.com/signed-license');
+      expect(result.insurance).toBe('https://example.com/signed-insurance');
     });
 
     it('works when no files are provided', async () => {
@@ -89,7 +91,7 @@ describe('UsersService', () => {
   describe('getProfile', () => {
     it('throws NotFoundException when user does not exist', async () => {
       prisma.users.findUnique.mockResolvedValue(null);
-      await expect(service.getProfile('user-1')).rejects.toThrow(
+      await expect(service.getProfile('user-1', 'user-1')).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -102,10 +104,57 @@ describe('UsersService', () => {
         profile: null,
       });
 
-      const result = await service.getProfile('user-1');
+      const result = await service.getProfile('user-1', 'user-1');
       expect(result.phone).toBeNull();
       expect(result.rate).toBe(0);
       expect(result.badges).toEqual([]);
+    });
+
+    it('exposes PII (email/phone/documentType) only to the profile owner', async () => {
+      prisma.users.findUnique.mockResolvedValue({
+        id: 'user-1',
+        name: 'Juan',
+        email: 'a@b.com',
+        profile: {
+          phone: '+573001234567',
+          documentType: 'CC',
+          photo: 'p.png',
+          rate: 4,
+          licenseValidation: LicenseValidation.PENDING,
+        },
+      });
+      prisma.ratings.groupBy.mockResolvedValue([]);
+
+      const owner = await service.getProfile('user-1', 'user-1');
+      expect(owner).toMatchObject({
+        email: 'a@b.com',
+        phone: '+573001234567',
+        documentType: 'CC',
+      });
+    });
+
+    it('hides PII from non-owners but keeps public fields', async () => {
+      prisma.users.findUnique.mockResolvedValue({
+        id: 'user-1',
+        name: 'Juan',
+        email: 'a@b.com',
+        profile: {
+          phone: '+573001234567',
+          documentType: 'CC',
+          photo: 'p.png',
+          rate: 4,
+          licenseValidation: LicenseValidation.PENDING,
+        },
+      });
+      prisma.ratings.groupBy.mockResolvedValue([]);
+
+      const result = await service.getProfile('user-1', 'someone-else');
+      expect(result).not.toHaveProperty('email');
+      expect(result).not.toHaveProperty('phone');
+      expect(result).not.toHaveProperty('documentType');
+      expect(result.name).toBe('Juan');
+      expect(result.photo).toBe('p.png');
+      expect(result.rate).toBe(4);
     });
 
     it('includes Verified Driver badge when license is verified', async () => {
@@ -123,7 +172,7 @@ describe('UsersService', () => {
       });
       prisma.ratings.groupBy.mockResolvedValue([]);
 
-      const result = await service.getProfile('user-1');
+      const result = await service.getProfile('user-1', 'user-1');
       expect(result.badges).toContain('Verified Driver');
     });
 
@@ -146,7 +195,7 @@ describe('UsersService', () => {
         )
         .mockResolvedValueOnce([]);
 
-      const result = await service.getProfile('user-1');
+      const result = await service.getProfile('user-1', 'user-1');
       expect(result.badges).toContain('Conductor confiable');
     });
 
@@ -169,7 +218,7 @@ describe('UsersService', () => {
           Array.from({ length: 10 }, (_, i) => ({ tripId: `t${i}` })),
         );
 
-      const result = await service.getProfile('user-1');
+      const result = await service.getProfile('user-1', 'user-1');
       expect(result.badges).toContain('Pasajero frecuente');
     });
   });

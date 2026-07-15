@@ -9,6 +9,11 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
+import { IMAGE_UPLOAD_OPTIONS } from '../common/upload/file-upload';
+
+// Endpoints sensibles a fuerza bruta / spam: 5 intentos por minuto y por IP.
+const AUTH_THROTTLE = { default: { limit: 5, ttl: 60000 } };
 import {
   ApiBody,
   ApiConsumes,
@@ -31,7 +36,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  @UseInterceptors(FileInterceptor('photo'))
+  @Throttle(AUTH_THROTTLE)
+  @UseInterceptors(FileInterceptor('photo', IMAGE_UPLOAD_OPTIONS))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Registrar usuario',
@@ -103,6 +109,7 @@ export class AuthController {
     description: 'Tokens de acceso generados exitosamente.',
   })
   @ApiResponse({ status: 401, description: 'Credenciales inválidas.' })
+  @Throttle(AUTH_THROTTLE)
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
@@ -118,6 +125,7 @@ export class AuthController {
     status: 401,
     description: 'Refresh token inválido o expirado.',
   })
+  @Throttle(AUTH_THROTTLE)
   refresh(@Body() refreshDto: RefreshDto) {
     return this.authService.refresh(refreshDto);
   }
@@ -136,6 +144,7 @@ export class AuthController {
   @ApiBody({ type: ForgotPasswordDto })
   @ApiResponse({ status: 200, description: 'Email de recuperación enviado.' })
   @ApiResponse({ status: 400, description: 'Email inválido.' })
+  @Throttle(AUTH_THROTTLE)
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
   }
@@ -151,6 +160,7 @@ export class AuthController {
     description: 'Contraseña actualizada exitosamente.',
   })
   @ApiResponse({ status: 401, description: 'Token inválido o expirado.' })
+  @Throttle(AUTH_THROTTLE)
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
   }

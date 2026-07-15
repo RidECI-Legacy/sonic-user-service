@@ -1,13 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
-import type { VehicleType } from 'src/users/enums/vehicle-type.enum';
+import { VehicleType } from '@prisma/client';
+import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
 
 export class CreateVehicleDto {
-  @ApiProperty({ example: 'uuid-1234-5678', description: 'ID único del vehículo' })
-  @IsString()
-  @IsNotEmpty()
-  id!: string;
-
   @ApiProperty({ example: 'Toyota', description: 'Marca del vehículo' })
   @IsString()
   @IsNotEmpty()
@@ -23,8 +18,11 @@ export class CreateVehicleDto {
   @IsNotEmpty()
   plate!: string;
 
-  @ApiProperty({ example: 'car', description: 'Tipo de vehículo (car, motorcycle)' })
-  @IsString()
-  @IsNotEmpty()
+  @ApiProperty({
+    enum: VehicleType,
+    example: VehicleType.CAR,
+    description: 'Tipo de vehículo',
+  })
+  @IsEnum(VehicleType)
   type!: VehicleType;
 }

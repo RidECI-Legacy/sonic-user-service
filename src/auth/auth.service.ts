@@ -13,6 +13,7 @@ import { RabbitmqService } from 'src/rabbitmq/rabbitmq.service';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import type { SupabaseSession } from 'src/supabase/supabase.service';
 import type { MulterFile } from 'src/users/interfaces/multer-file.interface';
+import { extensionForMimetype } from 'src/common/upload/file-upload';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
@@ -77,7 +78,7 @@ export class AuthService {
 
     let photoUrl: string | undefined;
     if (photo) {
-      const ext = photo.originalname.split('.').pop();
+      const ext = extensionForMimetype(photo.mimetype);
       const path = `${supabaseUser.id}/photo.${ext}`;
       await this.supabase.uploadFile('profile-pics', path, photo);
       photoUrl = this.supabase.getPublicUrl('profile-pics', path);

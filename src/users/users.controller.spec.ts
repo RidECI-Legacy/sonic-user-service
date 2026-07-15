@@ -4,11 +4,6 @@ import { UsersController } from './users.controller';
 describe('UsersController', () => {
   let controller: UsersController;
   let usersService: {
-    create: jest.Mock;
-    findAll: jest.Mock;
-    findOne: jest.Mock;
-    update: jest.Mock;
-    remove: jest.Mock;
     verifyRequest: jest.Mock;
     getProfile: jest.Mock;
     updateProfile: jest.Mock;
@@ -17,11 +12,6 @@ describe('UsersController', () => {
 
   beforeEach(() => {
     usersService = {
-      create: jest.fn(),
-      findAll: jest.fn(),
-      findOne: jest.fn(),
-      update: jest.fn(),
-      remove: jest.fn(),
       verifyRequest: jest.fn(),
       getProfile: jest.fn(),
       updateProfile: jest.fn(),
@@ -33,27 +23,10 @@ describe('UsersController', () => {
     );
   });
 
-  it('create/findAll/findOne/update/remove delegate to usersService', () => {
-    controller.create({ name: 'x' } as never);
-    expect(usersService.create).toHaveBeenCalled();
-
-    controller.findAll();
-    expect(usersService.findAll).toHaveBeenCalled();
-
-    controller.findOne('1');
-    expect(usersService.findOne).toHaveBeenCalledWith(1);
-
-    controller.update('1', {});
-    expect(usersService.update).toHaveBeenCalledWith(1, {});
-
-    controller.remove('1');
-    expect(usersService.remove).toHaveBeenCalledWith(1);
-  });
-
   it('verifyRequest delegates with the authenticated user id', () => {
     void controller.verifyRequest({}, 'vehicle-1', {
       user: { id: 'user-1' },
-    });
+    } as never);
     expect(usersService.verifyRequest).toHaveBeenCalledWith(
       'user-1',
       'vehicle-1',
@@ -61,9 +34,9 @@ describe('UsersController', () => {
     );
   });
 
-  it('getProfile is public and just delegates', () => {
-    void controller.getProfile('user-1');
-    expect(usersService.getProfile).toHaveBeenCalledWith('user-1');
+  it('getProfile delegates with the target id and the authenticated requester id', () => {
+    void controller.getProfile('user-1', { user: { id: 'user-2' } } as never);
+    expect(usersService.getProfile).toHaveBeenCalledWith('user-1', 'user-2');
   });
 
   describe('updateProfile ownership', () => {

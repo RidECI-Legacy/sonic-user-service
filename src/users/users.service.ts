@@ -3,11 +3,10 @@ import { LicenseValidation, ProfileRole } from '@prisma/client';
 import type { Profiles } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseService } from '../supabase/supabase.service';
-import type { CreateUserDto } from './dto/create-user.dto';
-import type { UpdateUserDto } from './dto/update-user.dto';
 import type { UpdateProfileSelfDto } from './dto/update-profile-self.dto';
 import type { MulterFile } from './interfaces/multer-file.interface';
 import { ProfileUpdateBuilder } from './builders/profile-update.builder';
+import { extensionForMimetype } from '../common/upload/file-upload';
 
 @Injectable()
 export class UsersService {
@@ -15,26 +14,6 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly supabase: SupabaseService,
   ) {}
-
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
-  }
-
-  findAll() {
-    return `This action returns all users`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
-  }
-
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} user`;
-  }
 
   async verifyRequest(
     userId: string,
@@ -58,47 +37,65 @@ export class UsersService {
       throw new NotFoundException('Vehicle not found');
     }
 
-    const publicUrls: Record<string, string | null> = {
+    // Estos buckets son privados: guardamos el path en BD y servimos signed URLs
+    // bajo demanda. Nunca URLs públicas (los documentos son datos personales).
+    const storedPaths: Record<'driverLicense' | 'insurance', string | null> = {
       driverLicense: null,
       insurance: null,
     };
 
     if (files.license?.[0]) {
       const file = files.license[0];
-      const ext = file.originalname.split('.').pop();
+      const ext = extensionForMimetype(file.mimetype);
       const path = `${userId}/license.${ext}`;
-      await this.supabase.uploadFile('driver-licenses', path, file);
-      publicUrls.driverLicense = this.supabase.getPublicUrl('driver-licenses', path);
+      storedPaths.driverLicense = await this.supabase.uploadFile(
+        'driver-licenses',
+        path,
+        file,
+      );
     }
 
     if (files.insurance?.[0]) {
       const file = files.insurance[0];
-      const ext = file.originalname.split('.').pop();
+      const ext = extensionForMimetype(file.mimetype);
       const path = `${vehicleId}/insurance.${ext}`;
-      await this.supabase.uploadFile('vehicle-insurance', path, file);
-      publicUrls.insurance = this.supabase.getPublicUrl('vehicle-insurance', path);
+      storedPaths.insurance = await this.supabase.uploadFile(
+        'vehicle-insurance',
+        path,
+        file,
+      );
     }
 
     await this.prisma.profiles.update({
       where: { userId },
-      data: { driverLicense: publicUrls.driverLicense },
+      data: { driverLicense: storedPaths.driverLicense },
     });
 
     await this.prisma.vehicles.update({
       where: { id: vehicleId },
       data: {
-        insurance: publicUrls.insurance,
+        insurance: storedPaths.insurance,
       },
     });
 
     return {
       message: 'Documents uploaded successfully',
-      driverLicense: publicUrls.driverLicense,
-      insurance: publicUrls.insurance,
+      driverLicense: storedPaths.driverLicense
+        ? await this.supabase.getSignedUrl(
+            'driver-licenses',
+            storedPaths.driverLicense,
+          )
+        : null,
+      insurance: storedPaths.insurance
+        ? await this.supabase.getSignedUrl(
+            'vehicle-insurance',
+            storedPaths.insurance,
+          )
+        : null,
     };
   }
 
-  async getProfile(userId: string) {
+  async getProfile(userId: string, requesterId: string) {
     const user = await this.prisma.users.findUnique({
       where: { id: userId },
       include: { profile: true },
@@ -107,15 +104,26 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return {
+    // Datos públicos: cualquier usuario autenticado puede verlos (p. ej. un
+    // pasajero viendo la reputación de un conductor).
+    const publicProfile = {
       id: user.id,
       name: user.name,
-      email: user.email,
-      phone: user.profile?.phone ?? null,
-      documentType: user.profile?.documentType ?? null,
       photo: user.profile?.photo ?? null,
       rate: user.profile?.rate ?? 0,
       badges: await this.computeBadges(userId, user.profile),
+    };
+
+    // El email, teléfono y documento son PII: solo el dueño del perfil los recibe.
+    if (requesterId !== userId) {
+      return publicProfile;
+    }
+
+    return {
+      ...publicProfile,
+      email: user.email,
+      phone: user.profile?.phone ?? null,
+      documentType: user.profile?.documentType ?? null,
     };
   }
 
@@ -131,7 +139,7 @@ export class UsersService {
 
     let photoUrl: string | undefined;
     if (photo) {
-      const ext = photo.originalname.split('.').pop();
+      const ext = extensionForMimetype(photo.mimetype);
       const path = `${userId}/photo.${ext}`;
       await this.supabase.uploadFile('profile-pics', path, photo);
       photoUrl = this.supabase.getPublicUrl('profile-pics', path);
@@ -163,7 +171,7 @@ export class UsersService {
       });
     }
 
-    return this.getProfile(userId);
+    return this.getProfile(userId, userId);
   }
 
   private async computeBadges(
