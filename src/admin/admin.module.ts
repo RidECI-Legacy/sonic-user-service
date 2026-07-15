@@ -3,9 +3,10 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RabbitmqModule } from '../rabbitmq/rabbitmq.module';
+import { SupabaseModule } from '../supabase/supabase.module';
 
 @Module({
-  imports: [PrismaModule, RabbitmqModule],
+  imports: [PrismaModule, RabbitmqModule, SupabaseModule],
   controllers: [AdminController],
   providers: [AdminService],
 })

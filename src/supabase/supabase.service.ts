@@ -1,24 +1,129 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { createClient } from '@supabase/supabase-js';
-import type { CreateSupabaseDto } from './dto/create-supabase.dto';
+import type { GoTrueClient } from '@supabase/auth-js';
+import type { StorageClient } from '@supabase/storage-js';
+
+type SupabaseAdmin = ReturnType<typeof createClient>;
+
+export interface SupabaseSession {
+  session: {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+    token_type: string;
+  };
+  user: {
+    id: string;
+    email?: string;
+  };
+}
 
 @Injectable()
-export class SupabaseService {
-  create(createSupabaseDto: CreateSupabaseDto) {
-    const supabase = createClient(
-      createSupabaseDto.supabase_url,
-      createSupabaseDto.secret_key,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
+export class SupabaseService implements OnModuleInit {
+  private supabaseAdmin!: SupabaseAdmin;
+  private supabaseAnon!: SupabaseAdmin;
+
+  onModuleInit() {
+    const url = process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const anonKey = process.env.SECRET_KEY;
+
+    if (url && serviceKey) {
+      this.supabaseAdmin = createClient(url, serviceKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+    }
+
+    if (url && anonKey) {
+      this.supabaseAnon = createClient(url, anonKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+    }
+  }
+
+  get auth(): GoTrueClient {
+    return this.supabaseAdmin.auth as unknown as GoTrueClient;
+  }
+
+  get anonAuth(): GoTrueClient {
+    return this.supabaseAnon.auth as unknown as GoTrueClient;
+  }
+
+  get storage(): StorageClient {
+    return this.supabaseAdmin.storage as unknown as StorageClient;
+  }
+
+  async signUp(
+    email: string,
+    password: string,
+    metadata?: Record<string, unknown>,
+    redirectTo?: string,
+  ) {
+    const { data, error } = await this.anonAuth.signUp({
+      email,
+      password,
+      options: {
+        data: metadata,
+        emailRedirectTo: redirectTo,
       },
-    );
+    });
+    if (error) throw error;
+    if (!data.user) throw new Error('No user returned from Supabase signUp');
+    return data.user;
+  }
 
-    const adminAuthClient = supabase.auth.admin;
+  async signIn(email: string, password: string): Promise<SupabaseSession> {
+    const { data, error } = await this.anonAuth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) throw error;
+    if (!data.session || !data.user) {
+      throw new Error('No session returned from Supabase signIn');
+    }
+    return { session: data.session, user: data.user };
+  }
 
-    return adminAuthClient;
+  async refreshSession(refreshToken: string): Promise<SupabaseSession> {
+    const { data, error } = await this.anonAuth.refreshSession({
+      refresh_token: refreshToken,
+    });
+    if (error) throw error;
+    if (!data.session || !data.user) {
+      throw new Error('No session returned from Supabase refreshSession');
+    }
+    return { session: data.session, user: data.user };
+  }
+
+  async resetPasswordForEmail(email: string, redirectTo?: string) {
+    const { error } = await this.anonAuth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+    if (error) throw error;
+  }
+
+  async updateUserPassword(
+    accessToken: string,
+    refreshToken: string,
+    newPassword: string,
+  ) {
+    const url = process.env.SUPABASE_URL;
+    const anonKey = process.env.SECRET_KEY;
+
+    const userSupabase = createClient(url!, anonKey!, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { error: sessionError } = await userSupabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (sessionError) throw sessionError;
+
+    const { error } = await userSupabase.auth.updateUser({
+      password: newPassword,
+    });
+    if (error) throw error;
   }
 
   async uploadFile(
@@ -26,7 +131,7 @@ export class SupabaseService {
     filePath: string,
     file: { buffer: Buffer; originalname: string; mimetype: string },
   ): Promise<string> {
-    const { error } = await this.supabase.storage
+    const { error } = await this.storage
       .from(bucket)
       .upload(filePath, file.buffer, {
         contentType: file.mimetype,
@@ -37,7 +142,7 @@ export class SupabaseService {
   }
 
   getPublicUrl(bucket: string, filePath: string): string {
-    const { data } = this.supabase.storage.from(bucket).getPublicUrl(filePath);
+    const { data } = this.storage.from(bucket).getPublicUrl(filePath);
     return data.publicUrl;
   }
 
@@ -46,7 +151,7 @@ export class SupabaseService {
     filePath: string,
     expiresIn = 3600,
   ): Promise<string> {
-    const { data, error } = await this.supabase.storage
+    const { data, error } = await this.storage
       .from(bucket)
       .createSignedUrl(filePath, expiresIn);
     if (error) throw error;
@@ -54,9 +159,24 @@ export class SupabaseService {
   }
 
   async deleteFile(bucket: string, filePath: string): Promise<void> {
-    const { error } = await this.supabase.storage
-      .from(bucket)
-      .remove([filePath]);
+    const { error } = await this.storage.from(bucket).remove([filePath]);
     if (error) throw error;
+  }
+
+  async deleteAuthUser(userId: string): Promise<void> {
+    await this.supabaseAdmin.auth.admin.deleteUser(userId);
+  }
+
+  async getAuthUser(
+    userId: string,
+  ): Promise<{ emailConfirmed: boolean; createdAt: string } | null> {
+    const { data, error } =
+      await this.supabaseAdmin.auth.admin.getUserById(userId);
+    if (error || !data.user) return null;
+
+    return {
+      emailConfirmed: data.user.email_confirmed_at != null,
+      createdAt: data.user.created_at,
+    };
   }
 }

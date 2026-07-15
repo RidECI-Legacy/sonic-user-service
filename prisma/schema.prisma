@@ -4,8 +4,7 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -41,13 +40,21 @@ enum LicenseValidation {
   REJECTED
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 model Users {
-  id        String  @id @default(uuid())
-  name      String
-  email     String  @unique
-  role      UserType
-  profile   Profiles?
-  vehicles  Vehicles[]
+  id              String     @id @default(uuid())
+  name            String
+  email           String     @unique
+  role            UserType?
+  status          UserStatus @default(ACTIVE)
+  profile         Profiles?
+  vehicles        Vehicles[]
+  ratingsGiven    Ratings[]  @relation("RatingsGiven")
+  ratingsReceived Ratings[]  @relation("RatingsReceived")
 }
 
 model Vehicles {
@@ -66,14 +73,31 @@ model Profiles {
   documentType      DocumentType
   documentNumber    String             @unique
   phone             String             @unique
-  role              ProfileRole
-  rate              Float
+  studentId         String?            @unique
+  role              ProfileRole?
+  rate              Float              @default(0)
   lastSession       DateTime           @default(now())
   userId            String             @unique
   user              Users              @relation(fields: [userId], references: [id])
-  photo            String?
-  driverLicense    String?
-  licenseValidation LicenseValidation @default(PENDING)
+  photo             String?
+  driverLicense     String?
+  licenseValidation LicenseValidation  @default(PENDING)
   verifiedAt        DateTime?
   rejectionReason   String?
+}
+
+model Ratings {
+  id          String      @id @default(uuid())
+  tripId      String
+  raterId     String
+  ratedUserId String
+  role        ProfileRole
+  stars       Int
+  comment     String?
+  createdAt   DateTime    @default(now())
+
+  rater     Users @relation("RatingsGiven", fields: [raterId], references: [id])
+  ratedUser Users @relation("RatingsReceived", fields: [ratedUserId], references: [id])
+
+  @@unique([tripId, raterId])
 }
